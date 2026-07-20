@@ -64,3 +64,18 @@ def send_refund_email(invoice,refund_type,amount,card_ending=None):
             'card_ending': card_ending
         }
         email_obj.send([email], from_address=ledger_email, context=context) 
+
+def send_discrepency_report(system, discrepancies, emails):
+    """
+    Send table of payment total records with discrepancies to relevant system report recipients
+    """
+    email_obj = TemplateEmailBase2()
+    email_obj.subject = 'Payment discrepancies for system {} {}'.format(system.system_id, system.system_name)
+    email_obj.html_template = 'dpaw_payments/emails/discrepancy_report.html'
+    email_obj.txt_template = 'dpaw_payments/emails/discrepancy_report.txt'
+
+    context = {
+        system: system,
+        discrepancies: discrepancies,
+    }
+    email_obj.send(emails, from_address=ledger_email, context=context) 
