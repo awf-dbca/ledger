@@ -2,4 +2,37 @@
 
 {% block content %}
 
+<h3>Payment Total Discrepancies found for System {{system.system_id}} {{system.system_name}}</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>System ID</th>
+            <th>Settlement Date</th>
+            <th>BPOINT Gateway Total</th>
+            <th>Ledger Bpoint Total</th>
+            <th>Oracle Parser Total</th>
+            <th>Oracle Receipt Total</th>
+            <th>Cash Total</th>
+            <th>BPAY Total</th>
+            <th>Updated</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for discrepancy in discrepancies %}
+        <tr>
+            <td>{{discrepancy.system_id}}</td>
+            <td>{{discrepancy.settlement_date}}</td>
+            <td>{{discrepancy.bpoint_gateway_total}}</td>
+            <td>{{discrepancy.ledger_bpoint_total}}</td>
+            <td>{{discrepancy.oracle_parser_total}}</td>
+            <td>{{discrepancy.oracle_receipt_total}}</td>
+            <td>{{discrepancy.cash_total}}</td>
+            <td>{{discrepancy.bpay_total}}</td>
+            <td>{{discrepancy.updated}}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 {% endblock %}

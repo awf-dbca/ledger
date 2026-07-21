@@ -41,10 +41,6 @@ class Command(BaseCommand):
                     row['oracle_receipt_total'] = str(discrepancy.oracle_receipt_total)
                     row['cash_total'] = str(discrepancy.cash_total)
                     row['bpay_total'] = str(discrepancy.bpay_total)
-                    discrepancy_status = False
-                    if discrepancy.bpoint_gateway_total != discrepancy.oracle_receipt_total:
-                        discrepancy_status = True
-                    row['discrepancy'] = discrepancy_status
                     row['updated'] = discrepancy.updated.strftime('%d/%m/%Y %H:%M:%S')
 
                     discrepancies_formatted.append(row)
