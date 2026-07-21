@@ -75,7 +75,7 @@ def send_discrepency_report(system, discrepancies, emails):
     email_obj.txt_template = 'dpaw_payments/emails/discrepancy_report.txt'
 
     context = {
-        system: system,
-        discrepancies: discrepancies,
+        'system': system,
+        'discrepancies': discrepancies,
     }
     email_obj.send(emails, from_address=ledger_email, context=context) 
