@@ -22,19 +22,56 @@ var ledger_payments = {
                 },
 
         },
+        formatMoney: function (cents) {
+                return `$${(cents / 100).toFixed(2)}`;
+        },
+        buildBPointHtml: function (data) {
+                return `
+                <table cellspacing="0" width="100%" id="money-booking" class="hover table table-striped table-bordered dt-responsive nowrap dataTable no-footer dtr-inline" role="grid" aria-describedby="bookings-table_info">
+                <tbody>
+                        <tr><th>Transaction Number</th><td>${data.txnNumber}</td></tr>
+                        <tr><th>Card Number</th><td>${data.paymentMethod?.card?.number ?? ""}</td></tr>
+                        <tr><th>Expiry Date</th><td>${data.paymentMethod?.card?.expiry?.month ?? ""}/${data.paymentMethod?.card?.expiry?.year ?? ""}</td></tr>
+                        <tr><th>Card Scheme</th><td>${data.paymentMethod?.card?.scheme ?? ""}</td></tr>
+                        <tr><th>Card Type</th><td>${data.paymentMethod?.card?.type ?? ""}</td></tr>
+                        
+                        <tr><th>Transaction Type</th><td>${data.action}</td></tr>
+                        <tr><th>Channel</th><td>${data.type}</td></tr>
+                        <tr><th>Payment Frequency</th><td>${data.subType}</td></tr>
+                        <tr><th>Source</th><td>${data.source}</td></tr>
+                        
+                        <tr><th>Invoice</th><td>${data.crn1}</td></tr>
+                        <tr><th>Amount</th><td>${ledger_payments.formatMoney(data.amount)} ${data.currency}</td></tr>
+                        <tr><th>Processed Date</th><td>${data.processedDateTime}</td></tr>
+                        <tr><th>Settlement Date</th><td>${data.settlementDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}</td></tr>
+                        <tr><th>Status</th><td>${data.responseText}</td></tr>
+                </tbody>
+                </table>
+                `;
+        },
         load_bpoint_details: function () {
                 const button = event.relatedTarget;
                 const bpointId = button.getAttribute("data-bpoint-id");
 
                 $.ajax({
-                        url: "",
+                        url: "/ledger/payments/api/get-bpoint-details/"+bpointId,
                         method: "GET",
                         contentType: "application/json",
-                        success: function (data) {
-                                document.getElementById('bPointDetailsBody').innerHTML = bpointId;
+                        success: function (res) {
+                                if (res.message == "success") {
+                                        document.getElementById('bPointDetailsBody').innerHTML = ledger_payments.buildBPointHtml(res.data);
+                                } else {
+                                        document.getElementById('bPointDetailsBody').innerHTML = res.message;
+                                }
+                        },
+                        error: function (xhr) {
+                                let message = "Failed to load BPoint details.";
+                                if (xhr.responseJSON?.message) {
+                                        message = xhr.responseJSON.message;
+                                }
+                                document.getElementById('bPointDetailsBody').innerHTML = `<div class="alert alert-danger">${message}</div>`
                         }
                 })
-                
         },
         clear_bpoint_details: function () {
                 document.getElementById('bPointDetailsBody').innerHTML = "Loading...";
