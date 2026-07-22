@@ -22,6 +22,23 @@ var ledger_payments = {
                 },
 
         },
+        load_bpoint_details: function () {
+                const button = event.relatedTarget;
+                const bpointId = button.getAttribute("data-bpoint-id");
+
+                $.ajax({
+                        url: "",
+                        method: "GET",
+                        contentType: "application/json",
+                        success: function (data) {
+                                document.getElementById('bPointDetailsBody').innerHTML = bpointId;
+                        }
+                })
+                
+        },
+        clear_bpoint_details: function () {
+                document.getElementById('bPointDetailsBody').innerHTML = "Loading...";
+        },
         load_payment_info: function () {
                 console.log("load_payment_info")
                 data = {}
@@ -51,7 +68,13 @@ var ledger_payments = {
 
                                                 for (let i = 0; i < data.data.bpoint.length; i++) {
 
-                                                        bpointdata += "<tr><td>" + data.data.bpoint[i].txnnumber + "</td><td><A href='/ledger/payments/invoice-pdf/" + data.data.bpoint[i].crn1 + "' target='_pdf_invoice_" + data.data.bpoint[i].crn1 + "'>" + data.data.bpoint[i].crn1 + "</a></td><td>" + data.data.bpoint[i].action + "</td><td>$" + data.data.bpoint[i].amount + "</td><td>" + data.data.bpoint[i].processed + "</td><td>" + data.data.bpoint[i].settlement_date + "</td><td>" + data.data.bpoint[i].last_digits + "</td></tr>";
+                                                        bpointdata += "<tr><td>" + data.data.bpoint[i].txnnumber + "</td><td><A href='/ledger/payments/invoice-pdf/" + data.data.bpoint[i].crn1 + "' target='_pdf_invoice_" + data.data.bpoint[i].crn1 + "'>" + data.data.bpoint[i].crn1 + "</a></td><td>" + data.data.bpoint[i].action + "</td><td>$" + data.data.bpoint[i].amount + "</td><td>" + data.data.bpoint[i].processed + "</td><td>" + data.data.bpoint[i].settlement_date + 
+                                                        
+                                                        "</td><td>" + 
+                                                        //TODO on click open modal/popup that get data from Bpoint with api request
+                                                        "<button type='button' class='btn-link' data-bs-toggle='modal' data-bs-target='#BPointDetails' data-bpoint-id='"+data.data.bpoint[i].txnnumber+"'>View BPoint</button>" + 
+                                                        
+                                                        "</td></tr>";
                                                         // console.log(data.data.bpoint[i]);
                                                 }
 
@@ -93,6 +116,14 @@ var ledger_payments = {
                                         take_payment.var.booking_reference = data.data.booking_reference;
                                         take_payment.var.booking_reference_linked = data.data.booking_reference_linked;
                                         take_payment.re_init();
+
+                                        const bpointDetailsModal = document.getElementById("BPointDetails")
+                                        bpointDetailsModal.addEventListener('shown.bs.modal', async function (event) {
+                                                ledger_payments.load_bpoint_details();
+                                        })
+                                        bpointDetailsModal.addEventListener('hide.bs.modal', async function (event) {
+                                                ledger_payments.clear_bpoint_details();
+                                        })
 
                                         if (data.data.invoice_group_checks_total > 1) {
                                                 $('#oracle-payments-data-error-message').html("<B>Error</B> Linked invoice grouping issues.  Please fix before making any monetary changes or payment refunds.");
@@ -393,7 +424,7 @@ var ledger_payments = {
         init: function () {
                 
                 setTimeout("ledger_payments.load_payment_info();", 400);
-
+                
         }
 }
 
