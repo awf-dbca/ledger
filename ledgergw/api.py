@@ -2703,3 +2703,26 @@ def check_oracle_code(request,apikey):
         pass
     response = HttpResponse(json.dumps(jsondata), content_type='application/json')
     return response   
+
+
+@csrf_exempt
+def send_save_payment_method_link(request,apikey):
+
+    jsondata = {'status': 404, 'message': 'API Key Not Found'}
+    data = json.loads(request.POST.get('data', "{}"))
+    print(data)
+    if ledgerapi_models.API.objects.filter(api_key=apikey,active=1).count():
+        if ledgerapi_utils.api_allow(ledgerapi_utils.get_client_ip(request),apikey) is True:
+            try:
+                print("hello")
+                jsondata['status'] = 200
+                jsondata['message'] = 'Success'
+            except Exception as e:
+                print(traceback.print_exc())
+                jsondata['status'] = 500
+                jsondata['message'] = 'Error: {}'.format(str(e))
+                jsondata['data'] = {}  
+
+    response = HttpResponse(json.dumps(jsondata), content_type='application/json')
+    return response   
+    

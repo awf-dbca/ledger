@@ -188,11 +188,14 @@ class PaymentDetailsView(CorePaymentDetailsView):
         system_id_zeroed=system_id.replace('S','0')
 
         ctx['store_card'] = True
+        ctx['allow_email_save_payment_link'] = False
         user = None
         logged_in_user = EmailUser.objects.get(id=int(self.checkout_session.get_user_logged_in()))
         # only load stored cards if the user is an admin or has legitimately logged in
         if self.checkout_session.basket_owner() and is_payment_admin(logged_in_user):
             user = EmailUser.objects.get(id=int(self.checkout_session.basket_owner()))
+            ctx['allow_email_save_payment_link'] = True
+            ctx['basket_owner_email'] = user.email
         #elif self.request.user.is_authenticated:
         #    user = self.request.user
         elif self.checkout_session.get_user_logged_in() and int(self.checkout_session.basket_owner()) == int(self.checkout_session.get_user_logged_in()):
@@ -208,8 +211,7 @@ class PaymentDetailsView(CorePaymentDetailsView):
                 ctx['cards'] = cards
         else:
             ctx['store_card'] = False
-
-
+        
         ctx['custom_template'] = custom_template
         ctx['bpay_allowed'] = settings.BPAY_ALLOWED
         ctx['payment_method'] = method
