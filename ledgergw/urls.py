@@ -58,7 +58,7 @@ urlpatterns = [
     re_path(r'^api/reports/itemised-transactions$', api.ItemisedTransactionReportView.as_view(), name='itemised-transaction-report'),
     re_path(r'^api/oracle_job$', api.OracleJob.as_view(), name='get-oracle'),
     re_path(r'^api/queue-report-job$', api.QueuePayemntAuditReportJob, name='queue-report-job'),
-    re_path(r'^ledgergw/remote/email-payment-method-link/(?P<apikey>.+)/', api.send_save_payment_method_link,name='email-payment-method-link'),
+    re_path(r'^ledgergw/remote/email-payment-method-link/(?P<apikey>.+)/', api.send_save_payment_method_link, name='email-payment-method-link'),
     re_path(r'^ledgergw/ip-check/', api.ip_check),
     re_path(r'^reports/$', views.ReportsView.as_view(), name='reports'),   
     re_path(r'^logout/$', logout, name='logout'),
