@@ -20,6 +20,7 @@ from ledger.basket import models as basket_models
 from ledger.order import models as order_models
 from django.core.files.base import ContentFile
 from django.utils.crypto import get_random_string
+from django.core import signing
 from ledger.payments.models import BpointToken
 from ledger.payments.bpoint.facade import Facade
 from rest_framework.response import Response
@@ -46,6 +47,7 @@ import ipaddress
 import re
 import mimetypes
 import requests 
+from django.core.cache import cache
 
 from oscar.apps.checkout.mixins import OrderPlacementMixin
 from oscar.apps.shipping.methods import NoShippingRequired
@@ -2710,11 +2712,37 @@ def send_save_payment_method_link(request,apikey):
 
     jsondata = {'status': 404, 'message': 'API Key Not Found'}
     data = json.loads(request.POST.get('data', "{}"))
-    print(data)
     if ledgerapi_models.API.objects.filter(api_key=apikey,active=1).count():
         if ledgerapi_utils.api_allow(ledgerapi_utils.get_client_ip(request),apikey) is True:
             try:
-                print("hello")
+                
+                # get submitted email and system url link to add card
+                email = request.POST.get('email', None)
+                system_url = request.POST.get('PAYMENT_INTERFACE_SYSTEM_URL', None)
+
+                #NOTE: this may be a temporary solution to ensure sending emails is rate limited - otherwise TODO move key prefix and seconds to settings
+                RATE_LIMIT_SECONDS = 300
+                cache_key = f"add_payment_method_link:{email}"
+                if cache.get(cache_key):
+                    return HttpResponse("Too many requests",status=429)
+                cache.set(cache_key, True, timeout=RATE_LIMIT_SECONDS)
+
+                # generate temporary auth token
+                token = signing.dumps(
+                    {
+                        "email": email,
+                    },
+                    salt="add-payment-method-token"
+                )
+
+                url = system_url + "/save_payment_method/" + token
+
+                #TODO
+                # send add card system url with temp token to specified email 
+                    #need to create email template
+                    #need to create and add card link view and template (on ledger and ledger api client)
+                    #need to create and add success link view and template
+
                 jsondata['status'] = 200
                 jsondata['message'] = 'Success'
             except Exception as e:
