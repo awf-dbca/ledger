@@ -125,4 +125,16 @@ def email_log(line):
      f.write(str(dt.strftime('%Y-%m-%d %H:%M:%S'))+': '+line+"\r\n")
      f.close()  
 
+def send_save_payment_method_link(email, link, user, system):
 
+    email_obj = TemplateEmailBase()
+    email_obj.subject = ''
+    email_obj.html_template = ''
+    email_obj.txt_template = ''
+
+    context = {
+        'link': link,
+        'user': user,
+        'system': system,
+    }
+    email_obj.send([email], from_address=default_from_email, context=context) 

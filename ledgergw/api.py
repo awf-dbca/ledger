@@ -2720,6 +2720,11 @@ def send_save_payment_method_link(request,apikey):
                 email = request.POST.get('email', None)
                 system_url = request.POST.get('PAYMENT_INTERFACE_SYSTEM_URL', None)
 
+                try:
+                    user = models.EmailUser.objects.filter(email__iexact=email.lower()).first()
+                except:
+                    raise ValidationError("Email Address does not exist in the system.")
+
                 #NOTE: this may be a temporary solution to ensure sending emails is rate limited - otherwise TODO move key prefix and seconds to settings
                 RATE_LIMIT_SECONDS = 300
                 cache_key = f"add_payment_method_link:{email}"
