@@ -29,6 +29,7 @@ from rest_framework.renderers import JSONRenderer
 from decimal import Decimal
 from ledgergw.serialisers import ReportSerializer, SettlementReportSerializer, OracleSerializer,ItemisedSettlementReportSerializer
 from ledgergw import utils as ledgergw_utils
+from ledgergw.emails import send_save_payment_method_link_email
 from django.http import HttpResponse
 from wsgiref.util import FileWrapper
 from django.core.exceptions import ValidationError
@@ -2719,7 +2720,12 @@ def send_save_payment_method_link(request,apikey):
                 # get submitted email and system url link to add card
                 email = request.POST.get('email', None)
                 system_url = request.POST.get('PAYMENT_INTERFACE_SYSTEM_URL', None)
-
+                system_id = request.POST.get('PAYMENT_INTERFACE_SYSTEM_ID', None)
+                try:
+                    system = payment_models.OracleInterfaceSystem.objects.get(id=system_id)
+                except:
+                    raise ValidationError(f"Oracle interface system with provided PAYMENT_INTERFACE_SYSTEM_ID {system_id} does not exist.")
+                                    
                 try:
                     user = models.EmailUser.objects.filter(email__iexact=email.lower()).first()
                 except:
@@ -2731,7 +2737,6 @@ def send_save_payment_method_link(request,apikey):
                 if cache.get(cache_key):
                     return HttpResponse("Too many requests",status=429)
                 cache.set(cache_key, True, timeout=RATE_LIMIT_SECONDS)
-
                 # generate temporary auth token
                 token = signing.dumps(
                     {
@@ -2742,9 +2747,15 @@ def send_save_payment_method_link(request,apikey):
 
                 url = system_url + "/save_payment_method/" + token
 
+                try:
+                    send_save_payment_method_link_email(email, url, user, system)
+                except Exception as e:
+                    print(e)
+                    cache.delete(cache_key)
+                    raise ValidationError("Failed to send save payment method link email.")
+
                 #TODO
                 # send add card system url with temp token to specified email 
-                    #need to create email template
                     #need to create and add card link view and template (on ledger and ledger api client)
                     #need to create and add success link view and template
 
