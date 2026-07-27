@@ -2745,7 +2745,7 @@ def send_save_payment_method_link(request,apikey):
                     salt="add-payment-method-token"
                 )
 
-                url = system_url + "/save_payment_method/" + token
+                url = system_url + "/ledger-ui/temp-add-payment-method/?token=" + token
 
                 try:
                     send_save_payment_method_link_email(email, url, user, system)
@@ -2753,11 +2753,6 @@ def send_save_payment_method_link(request,apikey):
                     print(e)
                     cache.delete(cache_key)
                     raise ValidationError("Failed to send save payment method link email.")
-
-                #TODO
-                # send add card system url with temp token to specified email 
-                    #need to create and add card link view and template (on ledger and ledger api client)
-                    #need to create and add success link view and template
 
                 jsondata['status'] = 200
                 jsondata['message'] = 'Success'

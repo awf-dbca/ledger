@@ -134,7 +134,7 @@ def email_log(line):
 def send_save_payment_method_link_email(email, link, user, system):
 
     email_obj = TemplateEmailBase2()
-    email_obj.subject = f'Invitation to save Payment Method for the {system.system_name} system.'
+    email_obj.subject = f'Invitation to save Payment Method for the {system.system_name}.'
     email_obj.html_template = 'email/save_payment_link_email.html'
     email_obj.txt_template = 'email/save_payment_link_email.txt'
 
