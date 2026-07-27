@@ -2767,6 +2767,58 @@ def send_save_payment_method_link(request,apikey):
                 jsondata['message'] = 'Error: {}'.format(str(e))
                 jsondata['data'] = {}  
 
+        else:
+            jsondata['status'] = 403
+            jsondata['message'] = 'Access Forbidden'
     response = HttpResponse(json.dumps(jsondata), content_type='application/json')
     return response   
-    
+
+def validate_save_payment_method_link_token(request, apikey):
+
+    jsondata = {'status': 404, 'message': 'API Key Not Found'}
+    data = json.loads(request.POST.get('data', "{}"))
+    if ledgerapi_models.API.objects.filter(api_key=apikey,active=1).count():
+        if ledgerapi_utils.api_allow(ledgerapi_utils.get_client_ip(request),apikey) is True:
+            try:
+                token = request.GET.get("token", None)
+                try:
+                    data = signing.loads(
+                        token,
+                        salt="add-payment-method-token",
+                    )
+
+                    email = data["email"]
+
+                    user = models.EmailUser.objects.filter(email__iexact=email.lower()).first()
+
+                    if user:
+                        jsondata['data'] = {
+                            'email': email,
+                            'ledger_id': user.id,
+                        }  
+                        jsondata['message'] = "Token valid for email user account."
+                        jsondata['status'] = 200
+                    else:
+                        user = None
+                        print("Invalid token")
+                        jsondata['status'] = 400
+                        jsondata['message'] = 'User account for email provided by token does not exist in the system'
+                        jsondata['data'] = {}  
+
+                except:
+                    print("Invalid token")
+                    jsondata['status'] = 400
+                    jsondata['message'] = 'Invalid or expired token'
+                    jsondata['data'] = {}  
+            except Exception as e:
+                print(traceback.print_exc())
+                jsondata['status'] = 500
+                jsondata['message'] = 'Error: {}'.format(str(e))
+                jsondata['data'] = {}
+
+        else:
+            jsondata['status'] = 403
+            jsondata['message'] = 'Access Forbidden'
+
+    response = HttpResponse(json.dumps(jsondata), content_type='application/json')
+    return response  
