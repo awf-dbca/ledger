@@ -2780,6 +2780,7 @@ def validate_save_payment_method_link_token(request, apikey):
                     data = signing.loads(
                         token,
                         salt="add-payment-method-token",
+                        max_age=600, #TODO make this configurable
                     )
 
                     email = data["email"]
@@ -2814,6 +2815,6 @@ def validate_save_payment_method_link_token(request, apikey):
         else:
             jsondata['status'] = 403
             jsondata['message'] = 'Access Forbidden'
-
+    
     response = HttpResponse(json.dumps(jsondata), content_type='application/json')
     return response  
