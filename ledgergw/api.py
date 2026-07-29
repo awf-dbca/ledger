@@ -29,7 +29,7 @@ from rest_framework.renderers import JSONRenderer
 from decimal import Decimal
 from ledgergw.serialisers import ReportSerializer, SettlementReportSerializer, OracleSerializer,ItemisedSettlementReportSerializer
 from ledgergw import utils as ledgergw_utils
-from ledgergw.emails import send_save_payment_method_link_email
+from ledgergw.emails import send_save_payment_method_link_email, send_payment_link_email
 from django.http import HttpResponse
 from wsgiref.util import FileWrapper
 from django.core.exceptions import ValidationError
@@ -2751,6 +2751,83 @@ def send_save_payment_method_link(request,apikey):
                 try:
                     expiry_time = (datetime.now() + timedelta(seconds=settings.ADD_METHOD_TOKEN_EXPIRY_TIME)).strftime("%d %B %Y %I:%M:%S %p")
                     send_save_payment_method_link_email(email, url, user, system, expiry_time)
+                except Exception as e:
+                    print(e)
+                    cache.delete(cache_key)
+                    raise ValidationError("Failed to send save payment method link email.")
+
+                jsondata['status'] = 200
+                jsondata['message'] = 'Success'
+            except Exception as e:
+                print(traceback.print_exc())
+                jsondata['status'] = 500
+                jsondata['message'] = 'Error: {}'.format(str(e))
+                jsondata['data'] = {}  
+
+        else:
+            jsondata['status'] = 403
+            jsondata['message'] = 'Access Forbidden'
+    response = HttpResponse(json.dumps(jsondata), content_type='application/json')
+    return response   
+
+@csrf_exempt
+def send_payment_link(request,apikey):
+
+    jsondata = {'status': 404, 'message': 'API Key Not Found'}
+    data = json.loads(request.POST.get('data', "{}"))
+    if ledgerapi_models.API.objects.filter(api_key=apikey,active=1).count():
+        if ledgerapi_utils.api_allow(ledgerapi_utils.get_client_ip(request),apikey) is True:
+            try:
+                
+                # get submitted email and system url link to add card
+                email = request.POST.get('email', None)
+                system_url = request.POST.get('PAYMENT_INTERFACE_SYSTEM_URL', None)
+                system_id = request.POST.get('PAYMENT_INTERFACE_SYSTEM_ID', None)
+                basket_id = request.POST.get('basket_id', None)
+
+                try:
+                    system = payment_models.OracleInterfaceSystem.objects.get(id=system_id)
+                except:
+                    raise ValidationError(f"Oracle interface system with provided PAYMENT_INTERFACE_SYSTEM_ID {system_id} does not exist.")
+                                    
+                try:
+                    user = models.EmailUser.objects.filter(email__iexact=email.lower()).first()
+                except:
+                    raise ValidationError("Email Address does not exist in the system.")
+
+                #NOTE: this may be a temporary solution to ensure sending emails is rate limited
+                cache_key = f"payment_link:{email}"
+                if cache.get(cache_key):
+                    jsondata['status'] = 429
+                    jsondata['message'] = f'Too many requests. Email can be sent again from {cache.get(cache_key).strftime("%d %B %Y %I:%M:%S %p")}.'
+                    jsondata['data'] = {}  
+                    return HttpResponse(json.dumps(jsondata), content_type='application/json')
+                cache.set(cache_key, datetime.now()+timedelta(seconds=settings.SEND_EMAIL_RATE_LIMIT), timeout=settings.SEND_EMAIL_RATE_LIMIT)
+                # generate temporary auth token
+                token = signing.dumps(
+                    {
+                        "email": email,
+                        "basket_id": basket_id,
+                    },
+                    salt="payment-token"
+                )
+
+                try:
+                    basket = basket_models.Basket.objects.get(id=int(basket_id))
+                    order = order_models.Order.objects.get(basket=basket, user=user)
+                    invoice = Invoice.objects.get(order_number=order.number)
+                    from ledger.payments.pdf import create_invoice_pdf_bytes
+                    invoice_pdf = create_invoice_pdf_bytes('invoice.pdf',invoice)
+                    attachment = ('invoice#{}.pdf'.format(invoice.reference), invoice_pdf, 'application/pdf')
+                except Exception as e:
+                    print(e)
+                    cache.delete(cache_key)
+                    raise ValidationError("There is no valid basket or invoice with provided basket id.")
+
+                url = system_url + "/ledger-ui/temp-payment/?token=" + token
+                try:
+                    expiry_time = (datetime.now() + timedelta(seconds=settings.PAYMENT_TOKEN_EXPIRY_TIME)).strftime("%d %B %Y %I:%M:%S %p")
+                    send_payment_link_email(email, url, user, system, expiry_time, attachment)
                 except Exception as e:
                     print(e)
                     cache.delete(cache_key)

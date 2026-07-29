@@ -102,10 +102,14 @@
             </form>
             {% if allow_email_save_payment_link %}
             <br><br>
-            <div class="border border-primary rounded-1 p-3">
-            Send Save Payment Method link to {{basket_owner_email}}: <br>
+            <input type="hidden" id="basket_id" value="{{basket.id}}">
             <input type="hidden" id="basket_owner_email" value="{{basket_owner_email}}">
-            <a href="#" id="send-email-link">Send Email</a><br>
+            <div class="border border-primary rounded-1 p-3">
+            Send Payment link to {{basket_owner_email}}: <br>
+            <a href="#" id="send-payment-email-link">Send Payment Email</a><br>
+            <br><br>
+            Send Save Payment Method link to {{basket_owner_email}}: <br>
+            <a href="#" id="send-email-link">Send Add Payment Method Email</a><br>
             <a href="">Reload Payment Screen</a>
             </div>
             {% endif %}

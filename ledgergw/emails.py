@@ -145,3 +145,18 @@ def send_save_payment_method_link_email(email, link, user, system, expiry_time):
         'expiry_time': expiry_time,
     }
     email_obj.send([email], from_address=default_from_email, context=context) 
+
+def send_payment_link_email(email, link, user, system, expiry_time, invoice_attachment):
+
+    email_obj = TemplateEmailBase2()
+    email_obj.subject = f'Payment request from {system.system_name}.'
+    email_obj.html_template = 'email/payment_link_email.html'
+    email_obj.txt_template = 'email/payment_link_email.txt'
+
+    context = {
+        'link': link,
+        'user': user,
+        'system': system,
+        'expiry_time': expiry_time,
+    }
+    email_obj.send([email], from_address=default_from_email, context=context, attachments=[invoice_attachment]) 
