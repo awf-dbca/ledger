@@ -375,6 +375,9 @@ $("#send-email-link").on("click", function (e) {
         url: '/ledger-api/email-payment-method-link/',
         data: data,
         success: function(data, textStatus, jQxhr) {
+            if (data["status"] != 200) {
+              $sending.replaceWith('<span class="text-muted">'+data["message"]+'</span>');
+            }
             $sending.replaceWith('<span class="text-muted">An email with a link to add payment method has been sent.</span>');
         },
         error: function( jqXhr, textStatus, errorThrown ) {

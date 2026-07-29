@@ -131,7 +131,7 @@ def email_log(line):
      f.write(str(dt.strftime('%Y-%m-%d %H:%M:%S'))+': '+line+"\r\n")
      f.close()  
 
-def send_save_payment_method_link_email(email, link, user, system):
+def send_save_payment_method_link_email(email, link, user, system, expiry_time):
 
     email_obj = TemplateEmailBase2()
     email_obj.subject = f'Invitation to save Payment Method for the {system.system_name}.'
@@ -142,5 +142,6 @@ def send_save_payment_method_link_email(email, link, user, system):
         'link': link,
         'user': user,
         'system': system,
+        'expiry_time': expiry_time,
     }
     email_obj.send([email], from_address=default_from_email, context=context) 

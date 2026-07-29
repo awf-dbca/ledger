@@ -33,7 +33,7 @@ from ledgergw.emails import send_save_payment_method_link_email
 from django.http import HttpResponse
 from wsgiref.util import FileWrapper
 from django.core.exceptions import ValidationError
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.conf import settings
 from ledger.payment import forms as payment_forms
 from ledger.payments.bpoint.gateway import Gateway
@@ -2731,12 +2731,14 @@ def send_save_payment_method_link(request,apikey):
                 except:
                     raise ValidationError("Email Address does not exist in the system.")
 
-                #NOTE: this may be a temporary solution to ensure sending emails is rate limited - otherwise TODO move key prefix and seconds to settings
-                RATE_LIMIT_SECONDS = 300
+                #NOTE: this may be a temporary solution to ensure sending emails is rate limited
                 cache_key = f"add_payment_method_link:{email}"
                 if cache.get(cache_key):
-                    return HttpResponse("Too many requests",status=429)
-                cache.set(cache_key, True, timeout=RATE_LIMIT_SECONDS)
+                    jsondata['status'] = 429
+                    jsondata['message'] = f'Too many requests. Email can be sent again from {cache.get(cache_key).strftime("%d %B %Y %I:%M:%S %p")}.'
+                    jsondata['data'] = {}  
+                    return HttpResponse(json.dumps(jsondata), content_type='application/json')
+                cache.set(cache_key, datetime.now()+timedelta(seconds=settings.SEND_EMAIL_RATE_LIMIT), timeout=settings.SEND_EMAIL_RATE_LIMIT)
                 # generate temporary auth token
                 token = signing.dumps(
                     {
@@ -2746,9 +2748,9 @@ def send_save_payment_method_link(request,apikey):
                 )
 
                 url = system_url + "/ledger-ui/temp-add-payment-method/?token=" + token
-
                 try:
-                    send_save_payment_method_link_email(email, url, user, system)
+                    expiry_time = (datetime.now() + timedelta(seconds=settings.ADD_METHOD_TOKEN_EXPIRY_TIME)).strftime("%d %B %Y %I:%M:%S %p")
+                    send_save_payment_method_link_email(email, url, user, system, expiry_time)
                 except Exception as e:
                     print(e)
                     cache.delete(cache_key)
@@ -2780,7 +2782,7 @@ def validate_save_payment_method_link_token(request, apikey):
                     data = signing.loads(
                         token,
                         salt="add-payment-method-token",
-                        max_age=600, #TODO make this configurable
+                        max_age=settings.ADD_METHOD_TOKEN_EXPIRY_TIME,
                     )
 
                     email = data["email"]
