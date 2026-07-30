@@ -61,6 +61,7 @@ urlpatterns = [
     re_path(r'^ledgergw/remote/email-payment-method-link/(?P<apikey>.+)/', api.send_save_payment_method_link, name='email-payment-method-link'),
     re_path(r'^ledgergw/remote/email-payment-link/(?P<apikey>.+)/', api.send_payment_link, name='email-payment-link'),
     re_path(r'^ledgergw/remote/validate_save_payment_method_link_token/(?P<apikey>.+)/', api.validate_save_payment_method_link_token, name='validate_save_payment_method_link_token'),
+    re_path(r'^ledgergw/remote/validate_payment_link_token/(?P<apikey>.+)/', api.validate_payment_link_token, name='validate_payment_link_token'),
     re_path(r'^ledgergw/ip-check/', api.ip_check),
     re_path(r'^reports/$', views.ReportsView.as_view(), name='reports'),   
     re_path(r'^logout/$', logout, name='logout'),

@@ -49,6 +49,7 @@ import re
 import mimetypes
 import requests 
 from django.core.cache import cache
+from oscar.core.loading import get_class
 
 from oscar.apps.checkout.mixins import OrderPlacementMixin
 from oscar.apps.shipping.methods import NoShippingRequired
@@ -2803,11 +2804,31 @@ def send_payment_link(request,apikey):
                     jsondata['data'] = {}  
                     return HttpResponse(json.dumps(jsondata), content_type='application/json')
                 cache.set(cache_key, datetime.now()+timedelta(seconds=settings.SEND_EMAIL_RATE_LIMIT), timeout=settings.SEND_EMAIL_RATE_LIMIT)
+
+                CheckoutSessionData = get_class('checkout.utils', 'CheckoutSessionData')
+                checkout_session = CheckoutSessionData(request)
+
+                #NOTE here we provide session variables required for the recipient to re-create the same session on their end
+                # we do not include any privileged or overriding values via this session, only those session variables required 
+                #(mainly invoice details and the notification url)
+                # we also override the return url to use a ledger api client interface to ensure the user does not need to be logged in
+
+                # everything include here should be provided with the understanding that:
+                #   the recipient will be able to read these values
+                #   the recipient will not be able to change these values
+
                 # generate temporary auth token
                 token = signing.dumps(
                     {
                         "email": email,
                         "basket_id": basket_id,
+                        "ledger_id": user.id,
+                        "system": checkout_session.system(),
+                        "return_url": checkout_session.return_url(),
+                        "return_preload_url": checkout_session.return_preload_url(),
+                        "invoice_text": checkout_session.get_invoice_text(),
+                        "basket_owner": checkout_session.basket_owner(),
+                        "session_type": checkout_session.get_session_type(),
                     },
                     salt="payment-token"
                 )
@@ -2819,10 +2840,10 @@ def send_payment_link(request,apikey):
                     from ledger.payments.pdf import create_invoice_pdf_bytes
                     invoice_pdf = create_invoice_pdf_bytes('invoice.pdf',invoice)
                     attachment = ('invoice#{}.pdf'.format(invoice.reference), invoice_pdf, 'application/pdf')
-                except Exception as e:
-                    print(e)
-                    cache.delete(cache_key)
-                    raise ValidationError("There is no valid basket or invoice with provided basket id.")
+                except:
+                    print("No invoice available for this order")
+                    attachment = None
+                    
 
                 url = system_url + "/ledger-ui/temp-payment/?token=" + token
                 try:
@@ -2895,5 +2916,65 @@ def validate_save_payment_method_link_token(request, apikey):
             jsondata['status'] = 403
             jsondata['message'] = 'Access Forbidden'
     
+    response = HttpResponse(json.dumps(jsondata), content_type='application/json')
+    return response  
+
+def validate_payment_link_token(request, apikey):
+
+    jsondata = {'status': 404, 'message': 'API Key Not Found'}
+    data = json.loads(request.POST.get('data', "{}"))
+    if ledgerapi_models.API.objects.filter(api_key=apikey,active=1).count():
+        if ledgerapi_utils.api_allow(ledgerapi_utils.get_client_ip(request),apikey) is True:
+            try:
+                token = request.GET.get("token", None)
+                try:
+                    data = signing.loads(
+                        token,
+                        salt="payment-token",
+                        max_age=settings.PAYMENT_TOKEN_EXPIRY_TIME,
+                    )
+
+                    email = data["email"]
+                    basket_id = data["basket_id"]
+
+                    basket_hash = BasketMiddleware(None).get_basket_hash(basket_id)
+                    
+                    user = models.EmailUser.objects.filter(email__iexact=email.lower()).first()
+
+                    if user:
+                        jsondata['data'] = {
+                            'basket_id': basket_id,
+                            'ledger_id': user.id,
+                            'system': data['system'] if 'system' in data else None,
+                            'return_url': data['return_url'] if 'return_url' in data else None,
+                            'return_preload_url': data['return_preload_url'] if 'return_preload_url' in data else None,
+                            'invoice_text': data['invoice_text'] if 'invoice_text' in data else None,
+                            'basket_owner': data['basket_owner'] if 'basket_owner' in data else None,
+                            'session_type': data['session_type'] if 'session_type' in data else None,
+                            'basket_hash': basket_hash,
+                        }  
+                        jsondata['message'] = "Token valid for email user account."
+                        jsondata['status'] = 200
+                    else:
+                        user = None
+                        print("Invalid token")
+                        jsondata['status'] = 400
+                        jsondata['message'] = 'User account for email provided by token does not exist in the system'
+                        jsondata['data'] = {}
+                except:
+                    print("Invalid token")
+                    jsondata['status'] = 400
+                    jsondata['message'] = 'Invalid or expired token'
+                    jsondata['data'] = {}  
+            except Exception as e:
+                print(traceback.print_exc())
+                jsondata['status'] = 500
+                jsondata['message'] = 'Error: {}'.format(str(e))
+                jsondata['data'] = {}
+
+        else:
+            jsondata['status'] = 403
+            jsondata['message'] = 'Access Forbidden'
+
     response = HttpResponse(json.dumps(jsondata), content_type='application/json')
     return response  

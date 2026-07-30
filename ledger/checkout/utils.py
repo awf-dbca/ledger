@@ -194,7 +194,7 @@ def get_cookie_basket(cookie_key,request):
 # the checkout session contains all of the attributes about a purchase session (e.g. payment method,
 # shipping method, ID of the person performing the checkout)
 def create_checkout_session(request, parameters):
-    #print (parameters['user_logged_in'])
+    print (parameters['user_logged_in'])
     serializer = serializers.CheckoutSerializer(data=parameters)
 
     try:
