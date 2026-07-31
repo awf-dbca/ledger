@@ -13,7 +13,9 @@ A request for payment has been made from the {{system.system_name}}.
 
 To review and make the payment, please click here ({{link}}) and follow the presented instructions.
 
+{% if expiry_time %}
 The link will be available to use until {{expiry_time}}.
+{% endif %}
 
 This email was sent via the {{system.system_name}} by an authorised payment administrator. If you believe this was sent in error, please ignore this email and do not click the link.
 

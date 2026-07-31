@@ -6,6 +6,7 @@ from ledgergw import models as ledgergw_models
 from ledgergw import reports
 from ledger.api import models as ledgerapi_models
 from ledger.api import utils as ledgerapi_utils
+from ledgergw.utils import get_hpp_payment_link
 #from ledgergw import common
 from django.db.models import Q
 from ledger.checkout import utils
@@ -2805,58 +2806,72 @@ def send_payment_link(request,apikey):
                     return HttpResponse(json.dumps(jsondata), content_type='application/json')
                 cache.set(cache_key, datetime.now()+timedelta(seconds=settings.SEND_EMAIL_RATE_LIMIT), timeout=settings.SEND_EMAIL_RATE_LIMIT)
 
-                CheckoutSessionData = get_class('checkout.utils', 'CheckoutSessionData')
-                checkout_session = CheckoutSessionData(request)
+                if settings.SEND_DIRECT_BPOINT_LINK:
+                    try:
+                        basket = basket_models.Basket.objects.get(id=int(basket_id))
+                        order = order_models.Order.objects.get(basket=basket, user=user)
+                        invoice = Invoice.objects.get(order_number=order.number)
+                        from ledger.payments.pdf import create_invoice_pdf_bytes
+                        invoice_pdf = create_invoice_pdf_bytes('invoice.pdf',invoice)
+                        attachment = ('invoice#{}.pdf'.format(invoice.reference), invoice_pdf, 'application/pdf')
+                    except:
+                        attachment = None
+                    url = get_hpp_payment_link(request, basket_id, system_url)
+                    send_payment_link_email(email, url, user, system, None, attachment)
+                    #instead of a token authenticated view of the payment details prior to payment, send a link to go directly to BPoint
+                else:
+                    CheckoutSessionData = get_class('checkout.utils', 'CheckoutSessionData')
+                    checkout_session = CheckoutSessionData(request)
 
-                #NOTE here we provide session variables required for the recipient to re-create the same session on their end
-                # we do not include any privileged or overriding values via this session, only those session variables required 
-                #(mainly invoice details and the notification url)
-                # we also override the return url to use a ledger api client interface to ensure the user does not need to be logged in
+                    #NOTE here we provide session variables required for the recipient to re-create the same session on their end
+                    # we do not include any privileged or overriding values via this session, only those session variables required 
+                    #(mainly invoice details and the notification url)
+                    # we also override the return url to use a ledger api client interface to ensure the user does not need to be logged in
 
-                # everything include here should be provided with the understanding that:
-                #   the recipient will be able to read these values
-                #   the recipient will not be able to change these values
+                    # everything include here should be provided with the understanding that:
+                    #   the recipient will be able to read these values
+                    #   the recipient will not be able to change these values
 
-                future_invoice = False
-                invoice_reference = None
-                try:
-                    basket = basket_models.Basket.objects.get(id=int(basket_id))
-                    order = order_models.Order.objects.get(basket=basket, user=user)
-                    invoice = Invoice.objects.get(order_number=order.number)
-                    from ledger.payments.pdf import create_invoice_pdf_bytes
-                    invoice_pdf = create_invoice_pdf_bytes('invoice.pdf',invoice)
-                    invoice_reference = invoice.reference
-                    future_invoice = True
-                    attachment = ('invoice#{}.pdf'.format(invoice.reference), invoice_pdf, 'application/pdf')
-                except:
-                    attachment = None
+                    future_invoice = False
+                    invoice_reference = None
+                    try:
+                        basket = basket_models.Basket.objects.get(id=int(basket_id))
+                        order = order_models.Order.objects.get(basket=basket, user=user)
+                        invoice = Invoice.objects.get(order_number=order.number)
+                        from ledger.payments.pdf import create_invoice_pdf_bytes
+                        invoice_pdf = create_invoice_pdf_bytes('invoice.pdf',invoice)
+                        invoice_reference = invoice.reference
+                        future_invoice = True
+                        attachment = ('invoice#{}.pdf'.format(invoice.reference), invoice_pdf, 'application/pdf')
+                    except:
+                        attachment = None
 
-                # generate temporary auth token
-                token = signing.dumps(
-                    {
-                        "email": email,
-                        "basket_id": basket_id,
-                        "ledger_id": user.id,
-                        "system": checkout_session.system(),
-                        "return_url": checkout_session.return_url(),
-                        "return_preload_url": checkout_session.return_preload_url(),
-                        "invoice_text": checkout_session.get_invoice_text(),
-                        "basket_owner": checkout_session.basket_owner(),
-                        "session_type": checkout_session.get_session_type(),
-                        "future_invoice": future_invoice,
-                        "invoice_reference": invoice_reference,
-                    },
-                    salt="payment-token"
-                )  
+                    # generate temporary auth token
+                    token = signing.dumps(
+                        {
+                            "email": email,
+                            "basket_id": basket_id,
+                            "ledger_id": user.id,
+                            "system": checkout_session.system(),
+                            "return_url": checkout_session.return_url(),
+                            "return_preload_url": checkout_session.return_preload_url(),
+                            "invoice_text": checkout_session.get_invoice_text(),
+                            "basket_owner": checkout_session.basket_owner(),
+                            "session_type": checkout_session.get_session_type(),
+                            "future_invoice": future_invoice,
+                            "invoice_reference": invoice_reference,
+                        },
+                        salt="payment-token"
+                    )  
 
-                url = system_url + "/ledger-ui/temp-payment/?token=" + token
-                try:
-                    expiry_time = (datetime.now() + timedelta(seconds=settings.PAYMENT_TOKEN_EXPIRY_TIME)).strftime("%d %B %Y %I:%M:%S %p")
-                    send_payment_link_email(email, url, user, system, expiry_time, attachment)
-                except Exception as e:
-                    print(e)
-                    cache.delete(cache_key)
-                    raise ValidationError("Failed to send save payment method link email.")
+                    url = system_url + "/ledger-ui/temp-payment/?token=" + token
+                    try:
+                        expiry_time = (datetime.now() + timedelta(seconds=settings.PAYMENT_TOKEN_EXPIRY_TIME)).strftime("%d %B %Y %I:%M:%S %p")
+                        send_payment_link_email(email, url, user, system, expiry_time, attachment)
+                    except Exception as e:
+                        print(e)
+                        cache.delete(cache_key)
+                        raise ValidationError("Failed to send payment link email.")
 
                 jsondata['status'] = 200
                 jsondata['message'] = 'Success'
