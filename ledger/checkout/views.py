@@ -190,15 +190,21 @@ class PaymentDetailsView(CorePaymentDetailsView):
         ctx['store_card'] = True
         ctx['allow_email_save_payment_link'] = False
         user = None
-        logged_in_user = EmailUser.objects.get(id=int(self.checkout_session.get_user_logged_in()))
+        try:
+            logged_in_user_id = int(self.checkout_session.get_user_logged_in())
+            logged_in_user = EmailUser.objects.get(id=logged_in_user_id)
+        except:
+            logged_in_user_id = None
+            logged_in_user = None
+
         # only load stored cards if the user is an admin or has legitimately logged in
-        if self.checkout_session.basket_owner() and is_payment_admin(logged_in_user):
+        if logged_in_user and self.checkout_session.basket_owner() and is_payment_admin(logged_in_user):
             user = EmailUser.objects.get(id=int(self.checkout_session.basket_owner()))
             ctx['allow_email_save_payment_link'] = True
             ctx['basket_owner_email'] = user.email
         #elif self.request.user.is_authenticated:
         #    user = self.request.user
-        elif self.checkout_session.get_user_logged_in() and int(self.checkout_session.basket_owner()) == int(self.checkout_session.get_user_logged_in()):
+        elif logged_in_user_id and self.checkout_session.get_user_logged_in() and int(self.checkout_session.basket_owner()) == logged_in_user_id:
             if 'LEDGER_API_KEY' in self.request.COOKIES:
                 apikey = self.request.COOKIES['LEDGER_API_KEY']
                 if ledgerapi_models.API.objects.filter(api_key=apikey,active=1).count():

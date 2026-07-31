@@ -2817,6 +2817,20 @@ def send_payment_link(request,apikey):
                 #   the recipient will be able to read these values
                 #   the recipient will not be able to change these values
 
+                future_invoice = False
+                invoice_reference = None
+                try:
+                    basket = basket_models.Basket.objects.get(id=int(basket_id))
+                    order = order_models.Order.objects.get(basket=basket, user=user)
+                    invoice = Invoice.objects.get(order_number=order.number)
+                    from ledger.payments.pdf import create_invoice_pdf_bytes
+                    invoice_pdf = create_invoice_pdf_bytes('invoice.pdf',invoice)
+                    invoice_reference = invoice.reference
+                    future_invoice = True
+                    attachment = ('invoice#{}.pdf'.format(invoice.reference), invoice_pdf, 'application/pdf')
+                except:
+                    attachment = None
+
                 # generate temporary auth token
                 token = signing.dumps(
                     {
@@ -2829,21 +2843,11 @@ def send_payment_link(request,apikey):
                         "invoice_text": checkout_session.get_invoice_text(),
                         "basket_owner": checkout_session.basket_owner(),
                         "session_type": checkout_session.get_session_type(),
+                        "future_invoice": future_invoice,
+                        "invoice_reference": invoice_reference,
                     },
                     salt="payment-token"
-                )
-
-                try:
-                    basket = basket_models.Basket.objects.get(id=int(basket_id))
-                    order = order_models.Order.objects.get(basket=basket, user=user)
-                    invoice = Invoice.objects.get(order_number=order.number)
-                    from ledger.payments.pdf import create_invoice_pdf_bytes
-                    invoice_pdf = create_invoice_pdf_bytes('invoice.pdf',invoice)
-                    attachment = ('invoice#{}.pdf'.format(invoice.reference), invoice_pdf, 'application/pdf')
-                except:
-                    print("No invoice available for this order")
-                    attachment = None
-                    
+                )  
 
                 url = system_url + "/ledger-ui/temp-payment/?token=" + token
                 try:
@@ -2952,6 +2956,8 @@ def validate_payment_link_token(request, apikey):
                             'basket_owner': data['basket_owner'] if 'basket_owner' in data else None,
                             'session_type': data['session_type'] if 'session_type' in data else None,
                             'basket_hash': basket_hash,
+                            "future_invoice": data['future_invoice'] if 'future_invoice' in data else None,
+                            "invoice_reference": data['invoice_reference'] if 'invoice_reference' in data else None,
                         }  
                         jsondata['message'] = "Token valid for email user account."
                         jsondata['status'] = 200
